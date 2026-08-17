@@ -9,3 +9,6 @@ models/
 data/
 *.pkl
 *.csv
+
+# Dataset de imágenes
+train/
