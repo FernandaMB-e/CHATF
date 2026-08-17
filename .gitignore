@@ -1,0 +1,11 @@
+# Entornos virtuales
+venv/
+
+# Archivos compilados de Python
+__pycache__/
+
+# Modelos entrenados y bases de datos
+models/
+data/
+*.pkl
+*.csv
