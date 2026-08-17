@@ -1,4 +1,10 @@
+import warnings
+warnings.filterwarnings("ignore") 
+
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -7,13 +13,12 @@ from collections import Counter
 from sklearn.ensemble import RandomForestClassifier
 
 # 1. Configuración de Rutas
-# ¡CAMBIA ESTA RUTA POR LA UBICACIÓN REAL DE TU CARPETA 'train' DE FER-2013!
 DATASET_PATH = "train" 
 MODEL_PATH = "models/modelo_emociones.pkl"
 
 os.makedirs("models", exist_ok=True)
 
-# 2. Mapeo de carpetas de FER-2013 a las 4 emociones de nuestro proyecto
+# 2. Mapeo de carpetas
 MAPEO_EMOCIONES = {
     "angry": "frustracion",
     "happy": "felicidad",
@@ -21,29 +26,24 @@ MAPEO_EMOCIONES = {
     "neutral": "neutral"
 }
 
-# 3. Inicializar MediaPipe (static_image_mode=True es VITAL para datasets)
+# 3. Inicializar MediaPipe
 mp_face_mesh = mp.solutions.face_mesh
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True, 
-    max_num_faces=1, 
-    refine_landmarks=True
-)
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
 
-# Los mismos 30 puntos clave que definimos en vision_engine.py
 LANDMARKS_CLAVE = [
-    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317,  # Boca
-    70, 63, 105, 66, 107, 55,                           # Ceja Izquierda
-    336, 296, 334, 293, 300, 285,                       # Ceja Derecha
-    159, 145, 386, 374, 33, 263                         # Ojos
+    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317,
+    70, 63, 105, 66, 107, 55,
+    336, 296, 334, 293, 300, 285,
+    159, 145, 386, 374, 33, 263
 ]
 
-def extraer_caracteristicas_clave(landmarks):
-    coords = np.array([[landmarks[idx].x, landmarks[idx].y, landmarks[idx].z] for idx in LANDMARKS_CLAVE])
+def extraer_caracteristicas_clave(landmarks, w, h):
+    coords = np.array([[landmarks[idx].x * w, landmarks[idx].y * h, landmarks[idx].z * w] for idx in LANDMARKS_CLAVE])
     centro = coords.mean(axis=0)
     coords_centradas = coords - centro
     
-    p_ojo_izq = np.array([landmarks[33].x, landmarks[33].y, landmarks[33].z])
-    p_ojo_der = np.array([landmarks[263].x, landmarks[263].y, landmarks[263].z])
+    p_ojo_izq = np.array([landmarks[33].x * w, landmarks[33].y * h, landmarks[33].z * w])
+    p_ojo_der = np.array([landmarks[263].x * w, landmarks[263].y * h, landmarks[263].z * w])
     dist_referencia = np.linalg.norm(p_ojo_izq - p_ojo_der)
     
     if dist_referencia == 0: 
@@ -55,53 +55,46 @@ X = []
 y = []
 
 print("==================================================")
-print("       ENTRENAMIENTO MASIVO CON FER-2013          ")
+print("       ENTRENAMIENTO MASIVO (CON CONTADOR)        ")
 print("==================================================")
 
-# 4. Leer y procesar las imágenes
 for carpeta_original, emocion_nuestra in MAPEO_EMOCIONES.items():
     ruta_carpeta = os.path.join(DATASET_PATH, carpeta_original)
-    
     if not os.path.exists(ruta_carpeta):
-        print(f"⚠️ AVISO: No se encontró la carpeta '{ruta_carpeta}'. Verifica la ruta.")
         continue
 
-    print(f"Procesando imágenes de: {emocion_nuestra.upper()} (Carpeta: {carpeta_original})...")
+    print(f"\nProcesando: {emocion_nuestra.upper()}...")
     archivos = os.listdir(ruta_carpeta)
+    imagenes_procesadas = 0  # Iniciamos el contador
     
-    imagenes_procesadas = 0
     for archivo in archivos:
         ruta_img = os.path.join(ruta_carpeta, archivo)
         img = cv2.imread(ruta_img)
-        
         if img is None:
             continue
             
-        # Convertir a RGB (MediaPipe lo requiere, aunque sea escala de grises)
         rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        alto, ancho, _ = rgb_img.shape
+        
         results = face_mesh.process(rgb_img)
 
-        # Si MediaPipe logra detectar un rostro en la imagen 48x48
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
-                features = extraer_caracteristicas_clave(face_landmarks.landmark)
+                features = extraer_caracteristicas_clave(face_landmarks.landmark, ancho, alto)
                 X.append(features)
                 y.append(emocion_nuestra)
-                imagenes_procesadas += 1
+                imagenes_procesadas += 1  # Sumamos al contador
 
-    print(f"  -> {imagenes_procesadas} rostros exitosamente extraídos de {len(archivos)} imágenes.")
+    # Imprimimos el resultado de la carpeta
+    print(f"  -> {imagenes_procesadas} rostros extraídos correctamente de {len(archivos)} imágenes.")
 
-# 5. Entrenar el Modelo Final
+# 5. Entrenar el Modelo
 if len(X) > 0:
-    print("\n[ENTRENAMIENTO] Entrenando modelo Random Forest con miles de datos...")
-    # Aumentamos la profundidad (max_depth) ya que ahora tenemos muchos más datos
+    print("\n[ENTRENAMIENTO] Entrenando modelo...")
     clf = RandomForestClassifier(n_estimators=150, max_depth=15, random_state=42)
     clf.fit(np.array(X), np.array(y))
     
     joblib.dump(clf, MODEL_PATH)
     
-    conteos = Counter(y)
-    print(f"[ÉXITO TOTAL] Modelo masivo guardado en: {MODEL_PATH}")
-    print(f"Resumen del Dataset Final: {dict(conteos)}")
-else:
-    print("\n[ERROR] No se pudo extraer ningún rostro. Verifica la ruta de DATASET_PATH.")
+    print(f"\n[ÉXITO] Modelo calibrado guardado en: {MODEL_PATH}")
+    print(f"Resumen de datos aprendidos: {dict(Counter(y))}")

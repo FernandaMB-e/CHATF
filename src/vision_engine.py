@@ -14,7 +14,7 @@ LANDMARKS_CLAVE = [
 class VisionEngine:
     def __init__(self, model_path="models/modelo_emociones.pkl"):
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"No se encontró el archivo de modelo en {model_path}")
+            raise FileNotFoundError(f"No se encontró el archivo {model_path}")
 
         self.model = joblib.load(model_path)
         self.mp_face_mesh = mp.solutions.face_mesh
@@ -24,13 +24,14 @@ class VisionEngine:
             refine_landmarks=True
         )
 
-    def extraer_caracteristicas_clave(self, landmarks):
-        coords = np.array([[landmarks[idx].x, landmarks[idx].y, landmarks[idx].z] for idx in LANDMARKS_CLAVE])
+    # Añadimos w (ancho) y h (alto) para corregir la distorsión de la cámara
+    def extraer_caracteristicas_clave(self, landmarks, w, h):
+        coords = np.array([[landmarks[idx].x * w, landmarks[idx].y * h, landmarks[idx].z * w] for idx in LANDMARKS_CLAVE])
         centro = coords.mean(axis=0)
         coords_centradas = coords - centro
         
-        p_ojo_izq = np.array([landmarks[33].x, landmarks[33].y, landmarks[33].z])
-        p_ojo_der = np.array([landmarks[263].x, landmarks[263].y, landmarks[263].z])
+        p_ojo_izq = np.array([landmarks[33].x * w, landmarks[33].y * h, landmarks[33].z * w])
+        p_ojo_der = np.array([landmarks[263].x * w, landmarks[263].y * h, landmarks[263].z * w])
         dist_referencia = np.linalg.norm(p_ojo_izq - p_ojo_der)
         
         if dist_referencia == 0: 
@@ -47,12 +48,11 @@ class VisionEngine:
             return None, None
 
         for face_landmarks in results.multi_face_landmarks:
-            features = self.extraer_caracteristicas_clave(face_landmarks.landmark)
+            # Ahora le enviamos el ancho y alto de tu cámara
+            features = self.extraer_caracteristicas_clave(face_landmarks.landmark, w, h)
             
-            # Predicción con el modelo
             prediccion = self.model.predict([features])[0]
 
-            # Obtener bounding box del rostro
             x_coords = [int(lm.x * w) for lm in face_landmarks.landmark]
             y_coords = [int(lm.y * h) for lm in face_landmarks.landmark]
             
