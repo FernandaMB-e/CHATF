@@ -91,7 +91,7 @@ for carpeta_original, emocion_nuestra in MAPEO_EMOCIONES.items():
 # 5. Entrenar el Modelo
 if len(X) > 0:
     print("\n[ENTRENAMIENTO] Entrenando modelo...")
-    clf = RandomForestClassifier(n_estimators=150, max_depth=15, random_state=42)
+    clf = RandomForestClassifier(n_estimators=150, max_depth=15, random_state=42, class_weight="balanced")
     clf.fit(np.array(X), np.array(y))
     
     joblib.dump(clf, MODEL_PATH)

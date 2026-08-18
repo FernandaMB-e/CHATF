@@ -24,7 +24,7 @@ def obtener_respuesta_incoherente(pregunta_usuario=""):
 
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=f"Pregunta del usuario: {pregunta_usuario}",
             config={
                 'system_instruction': prompt_sistema,
