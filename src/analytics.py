@@ -9,18 +9,18 @@ def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
     """
     if not os.path.exists(csv_path):
         print(f"[ERROR] No se encontró el archivo de registro en: {csv_path}")
-        print("Realiza algunas interacciones en main.py primero para generar datos.")
         return
 
     # Leer el archivo CSV
     df = pd.read_csv(csv_path)
 
-    if df.empty or 'emocion' not in df.columns:
-        print("[ADVERTENCIA] El archivo CSV está vacío o no contiene la columna 'emocion'.")
+    # Actualizado al nombre real de la columna
+    if df.empty or 'Emocion_Dominante' not in df.columns:
+        print("[ADVERTENCIA] El archivo CSV está vacío o no contiene la columna 'Emocion_Dominante'.")
         return
 
-    # Contar la frecuencia de cada emoción
-    conteo_emociones = df['emocion'].value_counts()
+    # Contar la frecuencia usando la columna correcta
+    conteo_emociones = df['Emocion_Dominante'].value_counts()
 
     print("==================================================")
     print("       RESUMEN ESTADÍSTICO DE EMOCIONES UX        ")
@@ -28,7 +28,6 @@ def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
     print(conteo_emociones)
     print("--------------------------------------------------")
 
-    # Configuración de estilo para las gráficas
     plt.style.use('ggplot')
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -44,7 +43,7 @@ def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
     axes[0].set_ylabel('Cantidad de Interacciones', fontsize=10)
     axes[0].tick_params(axis='x', rotation=45)
 
-    # 2. Gráfica de Pastel (Porcentajes)
+    # 2. Gráfica de Pastel
     conteo_emociones.plot(
         kind='pie', 
         ax=axes[1], 
@@ -54,18 +53,15 @@ def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
         wedgeprops={'edgecolor': 'black'}
     )
     axes[1].set_title('Distribución Porcentual de Reacciones', fontsize=12, fontweight='bold')
-    axes[1].set_ylabel('') # Quitar etiqueta lateral del pie
+    axes[1].set_ylabel('') 
 
-    # Ajustar diseño y mostrar
     plt.tight_layout()
     
-    # Guardar la imagen automáticamente para que la uses en tu reporte
     os.makedirs("data", exist_ok=True)
     ruta_imagen = "data/reporte_emociones_ux.png"
     plt.savefig(ruta_imagen, dpi=300)
     print(f"\n[ÉXITO] Gráfica profesional guardada exitosamente en: {ruta_imagen}")
     
-    # Mostrar la ventana con las gráficas
     plt.show()
 
 if __name__ == "__main__":
