@@ -12,3 +12,5 @@ data/
 
 # Dataset de imágenes
 train/
+
+.env
