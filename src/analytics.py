@@ -1,60 +1,72 @@
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
 
-def analizar_patrones_ux(csv_path="registro_patrones.csv"):
+def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
     """
-    Lee el archivo de registros y genera un informe estadístico 
-    sobre las emociones provocadas por los fallos de la IA.
+    Lee el registro de interacciones CSV y genera gráficas estadísticas
+    sobre las emociones detectadas durante la interacción con la IA.
     """
     if not os.path.exists(csv_path):
-        print(f"[AVISO] No se encontró el archivo de registros en: {csv_path}")
-        print("Ejecuta al menos una prueba en el sistema principal para generar datos.")
+        print(f"[ERROR] No se encontró el archivo de registro en: {csv_path}")
+        print("Realiza algunas interacciones en main.py primero para generar datos.")
         return
 
-    # Cargar los datos con pandas
+    # Leer el archivo CSV
     df = pd.read_csv(csv_path)
-    
-    if df.empty:
-        print("[AVISO] El archivo de registro está vacío.")
+
+    if df.empty or 'emocion' not in df.columns:
+        print("[ADVERTENCIA] El archivo CSV está vacío o no contiene la columna 'emocion'.")
         return
 
-    print("==================================================")
-    print("          INFORME DE PATRONES DE UX               ")
-    print("==================================================")
-    print(f"Total de interacciones analizadas: {len(df)}\n")
-
-    # 1. Conteo general de reacciones emocionales
-    print("--- 1. Distribución General de Emociones ---")
-    conteo_emociones = df['Emocion_Dominante'].value_counts()
-    for emocion, cantidad in conteo_emociones.items():
-        porcentaje = (cantidad / len(df)) * 100
-        print(f"  * {emocion.upper()}: {cantidad} registros ({porcentaje:.1f}%)")
-    print("\n")
-
-    # 2. Relación entre categoría de fallo y emoción generada
-    print("--- 2. Impacto Emocional por Categoría de Fallo ---")
-    if 'Categoria' in df.columns and 'Emocion_Dominante' in df.columns:
-        cruce = pd.crosstab(df['Categoria'], df['Emocion_Dominante'])
-        print(cruce)
-        print("\n")
-
-    # 3. Detalle por caso de prueba específico
-    print("--- 3. Desglose por Caso Específico ---")
-    for caso_id, grupo in df.groupby('ID_Caso'):
-        pregunta = grupo['Pregunta'].iloc[0]
-        categoria = grupo['Categoria'].iloc[0]
-        
-        # Obtener la emoción más frecuente para este caso
-        modo_emocion = grupo['Emocion_Dominante'].mode()
-        emocion_comun = modo_emocion[0].upper() if not modo_emocion.empty else "N/A"
-        
-        print(f"Caso #{caso_id} [{categoria}]")
-        print(f"  -> Pregunta: \"{pregunta}\"")
-        print(f"  -> Reacción predominante: {emocion_comun} (Pruebas realizadas: {len(grupo)})")
-        print("-" * 50)
+    # Contar la frecuencia de cada emoción
+    conteo_emociones = df['emocion'].value_counts()
 
     print("==================================================")
-    print("[SISTEMA] Análisis de patrones completado con éxito.")
+    print("       RESUMEN ESTADÍSTICO DE EMOCIONES UX        ")
+    print("==================================================")
+    print(conteo_emociones)
+    print("--------------------------------------------------")
+
+    # Configuración de estilo para las gráficas
+    plt.style.use('ggplot')
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # 1. Gráfica de Barras
+    conteo_emociones.plot(
+        kind='bar', 
+        ax=axes[0], 
+        color=['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
+        edgecolor='black'
+    )
+    axes[0].set_title('Frecuencia de Reacciones Emocionales', fontsize=12, fontweight='bold')
+    axes[0].set_xlabel('Emoción Detectada', fontsize=10)
+    axes[0].set_ylabel('Cantidad de Interacciones', fontsize=10)
+    axes[0].tick_params(axis='x', rotation=45)
+
+    # 2. Gráfica de Pastel (Porcentajes)
+    conteo_emociones.plot(
+        kind='pie', 
+        ax=axes[1], 
+        autopct='%1.1f%%', 
+        startangle=90,
+        colors=['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
+        wedgeprops={'edgecolor': 'black'}
+    )
+    axes[1].set_title('Distribución Porcentual de Reacciones', fontsize=12, fontweight='bold')
+    axes[1].set_ylabel('') # Quitar etiqueta lateral del pie
+
+    # Ajustar diseño y mostrar
+    plt.tight_layout()
+    
+    # Guardar la imagen automáticamente para que la uses en tu reporte
+    os.makedirs("data", exist_ok=True)
+    ruta_imagen = "data/reporte_emociones_ux.png"
+    plt.savefig(ruta_imagen, dpi=300)
+    print(f"\n[ÉXITO] Gráfica profesional guardada exitosamente en: {ruta_imagen}")
+    
+    # Mostrar la ventana con las gráficas
+    plt.show()
 
 if __name__ == "__main__":
-    analizar_patrones_ux()
+    generar_graficas_ux()
