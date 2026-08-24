@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA Afectiva - Interfaz UX</title>
+    <!-- Importando la fuente Roboto para una lectura limpia -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="contenedor-principal">
+        
+        <!-- ZONA SUPERIOR: El Avatar Interactvo -->
+        <div class="zona-avatar">
+            <div class="avatar-container" id="avatar">
+                <!-- SVG de la Carita -->
+                <svg viewBox="0 0 200 200" width="220" height="220" id="cara-svg">
+                    <!-- Rostro base (círculo opcional, lo dejaremos transparente para que flote) -->
+                    
+                    <!-- Rubor / Cachetitos -->
+                    <circle cx="55" cy="115" r="14" fill="#ffb6c1" opacity="0.7" class="rubor"/>
+                    <circle cx="145" cy="115" r="14" fill="#ffb6c1" opacity="0.7" class="rubor"/>
+
+                    <!-- Ojos -->
+                    <ellipse class="ojo" id="ojo-izq" cx="65" cy="95" rx="9" ry="14" fill="#2c3e50"/>
+                    <ellipse class="ojo" id="ojo-der" cx="135" cy="95" rx="9" ry="14" fill="#2c3e50"/>
+
+                    <!-- Brillo de los ojos -->
+                    <circle cx="68" cy="90" r="4" fill="#ffffff"/>
+                    <circle cx="138" cy="90" r="4" fill="#ffffff"/>
+
+                    <!-- Boca -->
+                    <path class="boca" id="boca" d="M 85 125 Q 100 135 115 125" stroke="#2c3e50" stroke-width="5" stroke-linecap="round" fill="none"/>
+                </svg>
+            </div>
+            <div class="estado-texto" id="estado-texto">Esperando tu pregunta...</div>
+        </div>
+
+        <!-- ZONA INFERIOR: El Chatbox -->
+        <div class="zona-chat">
+            <div class="chat-historial" id="chat-historial">
+                <div class="mensaje mensaje-ia">¡Hola! Soy tu asistente. Pregúntame lo que quieras.</div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" id="input-pregunta" placeholder="Escribe tu pregunta aquí..." autocomplete="off">
+                <button id="btn-enviar">Enviar</button>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

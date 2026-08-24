@@ -1,68 +1,65 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
-def generar_graficas_ux(csv_path="data/registro_patrones_ux.csv"):
+def generar_graficas_comparativas_ux(csv_path="data/registro_patrones_ux.csv"):
     """
-    Lee el registro de interacciones CSV y genera gráficas estadísticas
-    sobre las emociones detectadas durante la interacción con la IA.
+    Lee el registro del ciclo de computación afectiva y genera gráficas 
+    comparando la emoción Fase 1 (Choque) vs Fase 2 (Compensación).
     """
     if not os.path.exists(csv_path):
         print(f"[ERROR] No se encontró el archivo de registro en: {csv_path}")
         return
 
-    # Leer el archivo CSV
     df = pd.read_csv(csv_path)
 
-    # Actualizado al nombre real de la columna
-    if df.empty or 'Emocion_Dominante' not in df.columns:
-        print("[ADVERTENCIA] El archivo CSV está vacío o no contiene la columna 'Emocion_Dominante'.")
+    if df.empty or 'Emocion_Fase1' not in df.columns or 'Emocion_Fase2' not in df.columns:
+        print("[ADVERTENCIA] El archivo CSV está vacío o no tiene las columnas de ambas fases.")
         return
 
-    # Contar la frecuencia usando la columna correcta
-    conteo_emociones = df['Emocion_Dominante'].value_counts()
+    # Contar las frecuencias de ambas fases
+    fase1_counts = df['Emocion_Fase1'].value_counts()
+    fase2_counts = df['Emocion_Fase2'].value_counts()
+
+    # Unificar todas las emociones detectadas para alinear las barras
+    todas_emociones = list(set(fase1_counts.keys()).union(set(fase2_counts.keys())))
+    
+    valores_fase1 = [fase1_counts.get(emocion, 0) for emocion in todas_emociones]
+    valores_fase2 = [fase2_counts.get(emocion, 0) for emocion in todas_emociones]
 
     print("==================================================")
-    print("       RESUMEN ESTADÍSTICO DE EMOCIONES UX        ")
+    print("    COMPARATIVA DE EMOCIONES (ANTES Y DESPUÉS)    ")
     print("==================================================")
-    print(conteo_emociones)
+    for emocion, v1, v2 in zip(todas_emociones, valores_fase1, valores_fase2):
+        print(f"{emocion.upper():<15} | Fase 1: {v1}  ->  Fase 2: {v2}")
     print("--------------------------------------------------")
 
+    # Configuración de la gráfica comparativa
     plt.style.use('ggplot')
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
 
-    # 1. Gráfica de Barras
-    conteo_emociones.plot(
-        kind='bar', 
-        ax=axes[0], 
-        color=['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
-        edgecolor='black'
-    )
-    axes[0].set_title('Frecuencia de Reacciones Emocionales', fontsize=12, fontweight='bold')
-    axes[0].set_xlabel('Emoción Detectada', fontsize=10)
-    axes[0].set_ylabel('Cantidad de Interacciones', fontsize=10)
-    axes[0].tick_params(axis='x', rotation=45)
+    x = np.arange(len(todas_emociones))
+    width = 0.35
 
-    # 2. Gráfica de Pastel
-    conteo_emociones.plot(
-        kind='pie', 
-        ax=axes[1], 
-        autopct='%1.1f%%', 
-        startangle=90,
-        colors=['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
-        wedgeprops={'edgecolor': 'black'}
-    )
-    axes[1].set_title('Distribución Porcentual de Reacciones', fontsize=12, fontweight='bold')
-    axes[1].set_ylabel('') 
+    barras1 = ax.bar(x - width/2, valores_fase1, width, label='Fase 1 (Respuesta Incoherente)', color='#e74c3c', edgecolor='black')
+    barras2 = ax.bar(x + width/2, valores_fase2, width, label='Fase 2 (Respuesta Compensatoria)', color='#2ecc71', edgecolor='black')
+
+    ax.set_ylabel('Cantidad de Interacciones', fontsize=12)
+    ax.set_title('Evolución de la Experiencia de Usuario', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels([e.capitalize() for e in todas_emociones], fontsize=11)
+    ax.legend()
 
     plt.tight_layout()
     
+    # Guardar imagen para documentación
     os.makedirs("data", exist_ok=True)
-    ruta_imagen = "data/reporte_emociones_ux.png"
+    ruta_imagen = "data/comparativa_fases_ux.png"
     plt.savefig(ruta_imagen, dpi=300)
-    print(f"\n[ÉXITO] Gráfica profesional guardada exitosamente en: {ruta_imagen}")
+    print(f"\n[ÉXITO] Gráfica comparativa guardada en: {ruta_imagen}")
     
     plt.show()
 
 if __name__ == "__main__":
-    generar_graficas_ux()
+    generar_graficas_comparativas_ux()
