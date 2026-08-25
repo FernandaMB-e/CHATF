@@ -123,7 +123,16 @@ async def websocket_endpoint(websocket: WebSocket):
             await notificar_clientes({"estado": "pensando", "texto": "Analizando tu reacción y buscando respuesta..."})
             
             respuesta_comp = obtener_respuesta_compensatoria(pregunta_usuario, respuesta_inc, emocion_1)
-            estado_web = "feliz" if emocion_1 in ["felicidad", "sorpresa"] else "hablando"
+
+            # Lógica de Empatía Afectiva
+            emociones_negativas = ["frustracion", "enojo", "tristeza", "disgusto", "miedo", "desprecio"]
+
+            if emocion_1 in emociones_negativas:
+                estado_web = "hablando-empatico"
+            elif emocion_1 in ["felicidad", "sorpresa"]:
+                estado_web = "hablando-feliz"
+            else:
+                estado_web = "hablando" # Si es neutral, habla normal
 
             await notificar_clientes({
                 "estado": estado_web, 
