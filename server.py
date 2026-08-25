@@ -45,6 +45,7 @@ except Exception as e:
     audio_manager = None
     vision_engine = None
 
+# Estado global compartido para la cámara y el experimento
 estado_experimento = {
     "capturando": False,
     "hablando": False,
@@ -52,6 +53,15 @@ estado_experimento = {
 }
 
 clientes_conectados = set()
+
+# =================================================================
+# NUEVO: UNIFICANDO EL HILO DE LA CÁMARA CON EL SERVIDOR WEB
+# =================================================================
+@app.on_event("startup")
+def iniciar_camara_background():
+    hilo_camara = threading.Thread(target=bucle_vision_opencv, daemon=True)
+    hilo_camara.start()
+    print("[SISTEMA] Hilo de visión conectado exitosamente al servidor web.")
 
 @app.get("/")
 def leer_raiz():
@@ -88,11 +98,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 "tipo": "ia-incoherente"
             })
 
+            # Al cambiar estas variables ahora SÍ las leerá la cámara
             estado_experimento["emociones_buffer"] = []
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
 
-            # EJECUCIÓN SEGURA DE AUDIO
             if audio_manager:
                 await loop.run_in_executor(None, audio_manager.hablar, respuesta_inc)
             else:
@@ -125,7 +135,6 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
 
-            # EJECUCIÓN SEGURA DE AUDIO
             if audio_manager:
                 await loop.run_in_executor(None, audio_manager.hablar, respuesta_comp)
             else:
@@ -180,8 +189,6 @@ def bucle_vision_opencv():
     if not cap.isOpened():
         cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
-    print("[VISIÓN] Cámara abierta y analizando rostros en segundo plano...")
-
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -204,6 +211,7 @@ def bucle_vision_opencv():
             cv2.putText(frame, texto_emocion, (xmin + 5, ymin - 8), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
+        # Ahora el texto sí cambiará a rojo cuando Sabina hable
         if estado_experimento["hablando"]:
             cv2.circle(frame, (30, 35), 10, (0, 0, 255), -1)
             cv2.putText(frame, "EVALUANDO REACCION UX...", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
@@ -220,13 +228,11 @@ def bucle_vision_opencv():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    hilo_camara = threading.Thread(target=bucle_vision_opencv, daemon=True)
-    hilo_camara.start()
-
     import uvicorn
     print("\n==================================================")
     print("      SERVIDOR INTEGRADO (FASTAPI + OPENCV)       ")
     print("==================================================")
     print(" >>> Abre tu navegador en: http://127.0.0.1:8000  <<<")
     print("==================================================\n")
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    # Quitamos reload=True para evitar la clonación de procesos
+    uvicorn.run("server:app", host="127.0.0.1", port=8000)
