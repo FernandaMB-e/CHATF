@@ -67,7 +67,7 @@ async def websocket_endpoint(websocket: WebSocket):
     clientes_conectados.add(websocket)
     print("\n[RED] Cliente web conectado mediante WebSocket exitosamente.")
     
-    loop = asyncio.get_event_loop() # Obtenemos el controlador de eventos asíncronos
+    loop = asyncio.get_event_loop()
 
     try:
         while True:
@@ -78,14 +78,13 @@ async def websocket_endpoint(websocket: WebSocket):
             
             print(f"\n[USUARIO] -> {pregunta_usuario}")
             
-            # --- FASE 1 ---
+            # --- FASE 1: RESPUESTA INCOHERENTE ---
             await notificar_clientes({"estado": "pensando", "texto": "Pensando una locura..."})
             respuesta_inc = obtener_respuesta_incoherente(pregunta_usuario)
-            print(f"IA (Fase 1 Incoherente) -> {respuesta_inc}")
             
             await notificar_clientes({
                 "estado": "hablando", 
-                "texto": f"[Incoherente]: {respuesta_inc}", 
+                "texto": f"<b>[Incoherente]:</b> {respuesta_inc}", 
                 "tipo": "ia-incoherente"
             })
 
@@ -93,13 +92,13 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
 
-            # EJECUCIÓN NO BLOQUEANTE: La voz va en un carril paralelo
+            # EJECUCIÓN SEGURA DE AUDIO
             if audio_manager:
                 await loop.run_in_executor(None, audio_manager.hablar, respuesta_inc)
             else:
-                await asyncio.sleep(3.0)
+                await asyncio.sleep(2.0)
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.5)
             
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
@@ -110,17 +109,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 emocion_1 = "neutral"
             print(f"--> [REGISTRADO FASE 1] Emoción detectada: {emocion_1.upper()}")
 
-            # --- FASE 2 ---
+            # --- FASE 2: COMPENSACIÓN Y RESPUESTA CORRECTA ---
             await notificar_clientes({"estado": "pensando", "texto": "Analizando tu reacción y buscando respuesta..."})
             
             respuesta_comp = obtener_respuesta_compensatoria(pregunta_usuario, respuesta_inc, emocion_1)
-            print(f"IA (Fase 2 Compensatoria) -> {respuesta_comp}")
-
             estado_web = "feliz" if emocion_1 in ["felicidad", "sorpresa"] else "hablando"
 
             await notificar_clientes({
                 "estado": estado_web, 
-                "texto": f"[Corrección]: {respuesta_comp}", 
+                "texto": f"<b>[Corrección]:</b> {respuesta_comp}", 
                 "tipo": "ia-correcta"
             })
 
@@ -128,13 +125,13 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
 
-            # EJECUCIÓN NO BLOQUEANTE FASE 2
+            # EJECUCIÓN SEGURA DE AUDIO
             if audio_manager:
                 await loop.run_in_executor(None, audio_manager.hablar, respuesta_comp)
             else:
-                await asyncio.sleep(3.0)
+                await asyncio.sleep(2.0)
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.5)
 
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
