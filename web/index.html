@@ -14,15 +14,31 @@
     <div class="zona-avatar">
         <div class="avatar-container" id="avatar">
             <svg viewBox="0 0 200 200" id="cara-svg">
-                <circle cx="55" cy="115" r="14" fill="#ffb6c1" opacity="0.7" class="rubor"/>
-                <circle cx="145" cy="115" r="14" fill="#ffb6c1" opacity="0.7" class="rubor"/>
-                <path class="ceja" id="ceja-izq" d="M 55 75 Q 65 70 75 75" stroke="#2c3e50" stroke-width="4" stroke-linecap="round" fill="none"/>
-                <path class="ceja" id="ceja-der" d="M 125 75 Q 135 70 145 75" stroke="#2c3e50" stroke-width="4" stroke-linecap="round" fill="none"/>
-                <ellipse class="ojo" id="ojo-izq" cx="65" cy="95" rx="9" ry="14" fill="#2c3e50"/>
-                <ellipse class="ojo" id="ojo-der" cx="135" cy="95" rx="9" ry="14" fill="#2c3e50"/>
-                <circle cx="68" cy="90" r="4" fill="#ffffff"/>
-                <circle cx="138" cy="90" r="4" fill="#ffffff"/>
-                <path class="boca" id="boca" d="M 85 125 Q 100 135 115 125" stroke="#2c3e50" stroke-width="5" stroke-linecap="round" fill="none"/>
+                <!-- Rubor (Cachetes) -->
+                <circle cx="55" cy="115" r="14" fill="#ffb6c1" opacity="0.7" id="rubor-izq" style="transition: all 0.3s ease;"/>
+                <circle cx="145" cy="115" r="14" fill="#ffb6c1" opacity="0.7" id="rubor-der" style="transition: all 0.3s ease;"/>
+                
+                <!-- Cejas -->
+                <path class="ceja" id="ceja-izq" d="M 55 75 Q 65 70 75 75" stroke="#2c3e50" stroke-width="4" stroke-linecap="round" fill="none" style="transition: d 0.3s ease;"/>
+                <path class="ceja" id="ceja-der" d="M 125 75 Q 135 70 145 75" stroke="#2c3e50" stroke-width="4" stroke-linecap="round" fill="none" style="transition: d 0.3s ease;"/>
+
+                <!-- Ojos -->
+                <ellipse class="ojo" id="ojo-izq" cx="65" cy="95" rx="9" ry="14" fill="#2c3e50" style="transition: all 0.3s ease;"/>
+                <ellipse class="ojo" id="ojo-der" cx="135" cy="95" rx="9" ry="14" fill="#2c3e50" style="transition: all 0.3s ease;"/>
+                
+                <!-- Brillo de ojos (desaparecen cuando cierra los ojos) -->
+                <circle id="brillo-izq" cx="68" cy="90" r="4" fill="#ffffff" style="transition: opacity 0.3s ease;"/>
+                <circle id="brillo-der" cx="138" cy="90" r="4" fill="#ffffff" style="transition: opacity 0.3s ease;"/>
+
+                <!-- Boca -->
+                <path class="boca" id="boca" d="M 85 125 Q 100 135 115 125" stroke="#2c3e50" stroke-width="5" stroke-linecap="round" fill="none" style="transition: d 0.3s ease;"/>
+
+                <!-- Efectos especiales para Tristeza (Ocultos por defecto) -->
+                <g id="efectos-animar" style="opacity: 0; transition: opacity 0.5s ease;">
+                    <text x="25" y="60" font-size="25">🎶</text>
+                    <text x="145" y="55" font-size="25">💖</text>
+                    <text x="160" y="90" font-size="20">🎵</text>
+                </g>
             </svg>
         </div>
         <div class="estado-texto" id="estado-texto">Esperando tu pregunta...</div>

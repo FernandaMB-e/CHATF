@@ -55,7 +55,7 @@ estado_experimento = {
 clientes_conectados = set()
 
 # =================================================================
-# NUEVO: UNIFICANDO EL HILO DE LA CÁMARA CON EL SERVIDOR WEB
+# UNIFICANDO EL HILO DE LA CÁMARA CON EL SERVIDOR WEB
 # =================================================================
 @app.on_event("startup")
 def iniciar_camara_background():
@@ -98,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "tipo": "ia-incoherente"
             })
 
-            # Al cambiar estas variables ahora SÍ las leerá la cámara
+            # Activar captura de emociones en la cámara
             estado_experimento["emociones_buffer"] = []
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
@@ -124,18 +124,10 @@ async def websocket_endpoint(websocket: WebSocket):
             
             respuesta_comp = obtener_respuesta_compensatoria(pregunta_usuario, respuesta_inc, emocion_1)
 
-            # Lógica de Empatía Afectiva
-            emociones_negativas = ["frustracion", "enojo", "tristeza", "disgusto", "miedo", "desprecio"]
-
-            if emocion_1 in emociones_negativas:
-                estado_web = "hablando-empatico"
-            elif emocion_1 in ["felicidad", "sorpresa"]:
-                estado_web = "hablando-feliz"
-            else:
-                estado_web = "hablando" # Si es neutral, habla normal
-
+            # Enviamos directamente la emoción detectada (ej. frustracion, tristeza, felicidad) 
+            # para que el frontend active la animación empática correspondiente.
             await notificar_clientes({
-                "estado": estado_web, 
+                "estado": emocion_1, 
                 "texto": f"<b>[Corrección]:</b> {respuesta_comp}", 
                 "tipo": "ia-correcta"
             })
@@ -220,7 +212,7 @@ def bucle_vision_opencv():
             cv2.putText(frame, texto_emocion, (xmin + 5, ymin - 8), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        # Ahora el texto sí cambiará a rojo cuando Sabina hable
+        # Indicador visual en la ventana de OpenCV
         if estado_experimento["hablando"]:
             cv2.circle(frame, (30, 35), 10, (0, 0, 255), -1)
             cv2.putText(frame, "EVALUANDO REACCION UX...", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
@@ -243,5 +235,4 @@ if __name__ == "__main__":
     print("==================================================")
     print(" >>> Abre tu navegador en: http://127.0.0.1:8000  <<<")
     print("==================================================\n")
-    # Quitamos reload=True para evitar la clonación de procesos
     uvicorn.run("server:app", host="127.0.0.1", port=8000)

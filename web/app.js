@@ -6,6 +6,15 @@ const estadoTexto = document.getElementById('estado-texto');
 const bocaSvg = document.getElementById('boca');
 const cejaIzq = document.getElementById('ceja-izq');
 const cejaDer = document.getElementById('ceja-der');
+const ojoIzq = document.getElementById('ojo-izq');
+const ojoDer = document.getElementById('ojo-der');
+const brilloIzq = document.getElementById('brillo-izq');
+const brilloDer = document.getElementById('brillo-der');
+const ruborIzq = document.getElementById('rubor-izq');
+const ruborDer = document.getElementById('rubor-der');
+const efectosAnimar = document.getElementById('efectos-animar');
+
+
 // Conexión WebSocket con el servidor Python (FastAPI)
 const ws = new WebSocket("ws://127.0.0.1:8000/ws");
 
@@ -53,53 +62,73 @@ function agregarMensaje(texto, tipo) {
 }
 
 // Control dinámico de las expresiones del SVG
-// Control dinámico de expresiones faciales (Boca y Cejas)
-function cambiarExpresion(estado) {
-    // 1. Configuraciones por defecto (Estado Neutral)
+function cambiarExpresion(emocion) {
+    // 1. Valores Neutrales por defecto
     let dBoca = 'M 85 125 Q 100 135 115 125';
     let dCejaIzq = 'M 55 75 Q 65 70 75 75';
     let dCejaDer = 'M 125 75 Q 135 70 145 75';
+    let ryOjo = '14'; // Altura del ojo abierto
+    let opBrillo = '1';
+    let colorRubor = '#ffb6c1';
+    let radioRubor = '14';
+    let opEfectos = '0';
 
-    if (estado === 'feliz' || estado === 'hablando-feliz') {
-        // Sonrisa grande y cejas arqueadas de felicidad
-        dBoca = (estado === 'feliz') ? 'M 70 120 Q 100 150 130 120' : 'M 80 115 Q 100 145 120 115';
+    // 2. Comportamientos empáticos para cada emoción
+    if (emocion === 'frustracion' || emocion === 'enojo') {
+        // Disculpa empática: Ojos cerrados (ry=2), rubor intenso y grande, sonrisa apenada, cejas compasivas
+        dBoca = 'M 80 128 Q 100 135 120 128'; 
+        dCejaIzq = 'M 55 75 Q 65 60 75 80'; 
+        dCejaDer = 'M 125 80 Q 135 60 145 75';
+        ryOjo = '2'; // Cierra los ojos
+        opBrillo = '0'; // Quita el brillo blanco
+        colorRubor = '#ff4757'; // Cachetes más rojos
+        radioRubor = '18'; // Cachetes más grandes
+        
+    } else if (emocion === 'tristeza') {
+        // Intentar animar: Boca cantando, notas musicales y corazones
+        dBoca = 'M 90 125 Q 100 145 110 125'; // Boquita cantando/hablando tierno
+        dCejaIzq = 'M 55 70 Q 65 60 75 75'; 
+        dCejaDer = 'M 125 75 Q 135 60 145 70';
+        opEfectos = '1'; // Muestra la música y corazones
+        
+    } else if (emocion === 'sorpresa' || emocion === 'miedo') {
+        // Susto/Sorpresa: Ojos y boca gigante, cejas volando
+        dBoca = 'M 85 125 Q 100 155 115 125'; 
+        dCejaIzq = 'M 55 60 Q 65 50 75 60'; 
+        dCejaDer = 'M 125 60 Q 135 50 145 60';
+        ryOjo = '17'; // Ojos súper abiertos
+        
+    } else if (emocion === 'felicidad') {
+        dBoca = 'M 70 120 Q 100 150 130 120'; // Sonrisa enorme
         dCejaIzq = 'M 55 70 Q 65 60 75 70';
         dCejaDer = 'M 125 70 Q 135 60 145 70';
         
-    } else if (estado === 'empatico' || estado === 'hablando-empatico') {
-        // Cejas curvas hacia adentro (tristeza/empatía) y boca suave
-        dBoca = (estado === 'empatico') ? 'M 80 128 Q 100 120 120 128' : 'M 85 122 Q 100 135 115 122'; 
-        dCejaIzq = 'M 55 75 Q 65 60 75 80'; 
-        dCejaDer = 'M 125 80 Q 135 60 145 75';
-        
-    } else if (estado === 'sorpresa') {
-        // Boca en "O" y cejas altísimas
-        dBoca = 'M 85 125 Q 100 150 115 125'; 
-        dCejaIzq = 'M 55 65 Q 65 50 75 65'; 
-        dCejaDer = 'M 125 65 Q 135 50 145 65';
-        
-    } else if (estado === 'pensando') {
-        // Boca ladeada y una ceja levantada (estilo dudoso)
+    } else if (emocion === 'pensando') {
         dBoca = 'M 85 125 Q 100 125 115 120'; 
         dCejaIzq = 'M 55 75 Q 65 70 75 75'; 
         dCejaDer = 'M 125 65 Q 135 60 145 65'; 
         
-    } else if (estado === 'hablando') {
-        // Hablando neutral
+    } else if (emocion === 'hablando') {
         dBoca = 'M 85 118 Q 100 140 115 118';
     }
 
-    // 2. Aplicar las transformaciones al SVG
-    bocaSvg.setAttribute('d', dBoca);
-    if(cejaIzq && cejaDer) {
-        // Añadimos una transición suave vía CSS/JS directo
-        cejaIzq.style.transition = "d 0.3s ease";
-        cejaDer.style.transition = "d 0.3s ease";
-        bocaSvg.style.transition = "d 0.3s ease";
-        
-        cejaIzq.setAttribute('d', dCejaIzq);
-        cejaDer.setAttribute('d', dCejaDer);
+    // 3. Aplicamos todo al dibujo SVG
+    if(bocaSvg) bocaSvg.setAttribute('d', dBoca);
+    if(cejaIzq) cejaIzq.setAttribute('d', dCejaIzq);
+    if(cejaDer) cejaDer.setAttribute('d', dCejaDer);
+    if(ojoIzq) ojoIzq.setAttribute('ry', ryOjo);
+    if(ojoDer) ojoDer.setAttribute('ry', ryOjo);
+    if(brilloIzq) brilloIzq.style.opacity = opBrillo;
+    if(brilloDer) brilloDer.style.opacity = opBrillo;
+    if(ruborIzq) {
+        ruborIzq.setAttribute('fill', colorRubor);
+        ruborIzq.setAttribute('r', radioRubor);
     }
+    if(ruborDer) {
+        ruborDer.setAttribute('fill', colorRubor);
+        ruborDer.setAttribute('r', radioRubor);
+    }
+    if(efectosAnimar) efectosAnimar.style.opacity = opEfectos;
 }
 
 // Enviar pregunta al servidor Python por WebSocket
