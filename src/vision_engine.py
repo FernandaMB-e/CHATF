@@ -24,7 +24,6 @@ class VisionEngine:
             refine_landmarks=True
         )
 
-    # Añadimos w (ancho) y h (alto) para corregir la distorsión de la cámara
     def extraer_caracteristicas_clave(self, landmarks, w, h):
         coords = np.array([[landmarks[idx].x * w, landmarks[idx].y * h, landmarks[idx].z * w] for idx in LANDMARKS_CLAVE])
         centro = coords.mean(axis=0)
@@ -44,11 +43,11 @@ class VisionEngine:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(rgb_frame)
 
+        
         if not results.multi_face_landmarks:
-            return None, None
+            return None, None, None
 
         for face_landmarks in results.multi_face_landmarks:
-            # Ahora le enviamos el ancho y alto de tu cámara
             features = self.extraer_caracteristicas_clave(face_landmarks.landmark, w, h)
             
             prediccion = self.model.predict([features])[0]
@@ -59,6 +58,7 @@ class VisionEngine:
             xmin, xmax = max(0, min(x_coords)), min(w, max(x_coords))
             ymin, ymax = max(0, min(y_coords)), min(h, max(y_coords))
 
-            return prediccion, (xmin, ymin, xmax, ymax)
+            # Modificación 2: Añadir face_landmarks al retorno
+            return prediccion, (xmin, ymin, xmax, ymax), face_landmarks
 
-        return None, None
+        return None, None, None

@@ -6,6 +6,7 @@ import time
 import asyncio
 import threading
 import csv
+import numpy as np
 from collections import Counter
 import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -45,18 +46,18 @@ except Exception as e:
     audio_manager = None
     vision_engine = None
 
-# Estado global compartido para la cámara y el experimento
+# Modificación 1: Añadimos variables para guardar la foto en memoria
 estado_experimento = {
     "capturando": False,
     "hablando": False,
-    "emociones_buffer": []
+    "emociones_buffer": [],
+    "ultimo_frame": None,
+    "ultimas_coordenadas": None,
+    "ultimos_landmarks": None
 }
 
 clientes_conectados = set()
 
-# =================================================================
-# UNIFICANDO EL HILO DE LA CÁMARA CON EL SERVIDOR WEB
-# =================================================================
 @app.on_event("startup")
 def iniciar_camara_background():
     hilo_camara = threading.Thread(target=bucle_vision_opencv, daemon=True)
@@ -98,7 +99,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 "tipo": "ia-incoherente"
             })
 
-            # Activar captura de emociones en la cámara
             estado_experimento["emociones_buffer"] = []
             estado_experimento["capturando"] = True
             estado_experimento["hablando"] = True
@@ -119,13 +119,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 emocion_1 = "neutral"
             print(f"--> [REGISTRADO FASE 1] Emoción detectada: {emocion_1.upper()}")
 
+            # Modificación 2: Llamamos a tu función para guardar fotos de Fase 1
+            if estado_experimento["ultimo_frame"] is not None:
+                guardar_evidencia_visual(
+                    estado_experimento["ultimo_frame"],
+                    estado_experimento["ultimas_coordenadas"],
+                    estado_experimento["ultimos_landmarks"],
+                    emocion_1,
+                    "fase1"
+                )
+
             # --- FASE 2: COMPENSACIÓN Y RESPUESTA CORRECTA ---
             await notificar_clientes({"estado": "pensando", "texto": "Analizando tu reacción y buscando respuesta..."})
             
             respuesta_comp = obtener_respuesta_compensatoria(pregunta_usuario, respuesta_inc, emocion_1)
 
-            # Enviamos directamente la emoción detectada (ej. frustracion, tristeza, felicidad) 
-            # para que el frontend active la animación empática correspondiente.
             await notificar_clientes({
                 "estado": emocion_1, 
                 "texto": f"<b>[Corrección]:</b> {respuesta_comp}", 
@@ -151,6 +159,16 @@ async def websocket_endpoint(websocket: WebSocket):
             else:
                 emocion_2 = "neutral"
             print(f"--> [REGISTRADO FASE 2] Emoción detectada: {emocion_2.upper()}")
+
+            # Modificación 3: Llamamos a tu función para guardar fotos de Fase 2
+            if estado_experimento["ultimo_frame"] is not None:
+                guardar_evidencia_visual(
+                    estado_experimento["ultimo_frame"],
+                    estado_experimento["ultimas_coordenadas"],
+                    estado_experimento["ultimos_landmarks"],
+                    emocion_2,
+                    "fase2"
+                )
 
             # --- GUARDAR EN CSV ---
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -196,13 +214,19 @@ def bucle_vision_opencv():
             break
 
         frame = cv2.flip(frame, 1)
-        prediccion, face_coords = vision_engine.procesar_frame(frame)
+        
+        # Modificación 4: Desempaquetamos 3 variables (agregamos 'landmarks')
+        prediccion, face_coords, landmarks = vision_engine.procesar_frame(frame)
 
-        if prediccion:
+        if prediccion and face_coords:
+            # Modificación 5: Guardamos una copia exacta para enviar a las carpetas
+            estado_experimento["ultimo_frame"] = frame.copy()
+            estado_experimento["ultimas_coordenadas"] = face_coords
+            estado_experimento["ultimos_landmarks"] = landmarks
+
             if estado_experimento["capturando"]:
                 estado_experimento["emociones_buffer"].append(prediccion)
 
-        if prediccion and face_coords:
             xmin, ymin, xmax, ymax = face_coords
             color_box = (0, 0, 255) if estado_experimento["capturando"] else (0, 255, 0)
 
@@ -212,7 +236,6 @@ def bucle_vision_opencv():
             cv2.putText(frame, texto_emocion, (xmin + 5, ymin - 8), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-        # Indicador visual en la ventana de OpenCV
         if estado_experimento["hablando"]:
             cv2.circle(frame, (30, 35), 10, (0, 0, 255), -1)
             cv2.putText(frame, "EVALUANDO REACCION UX...", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
@@ -227,6 +250,55 @@ def bucle_vision_opencv():
 
     cap.release()
     cv2.destroyAllWindows()
+
+
+def guardar_evidencia_visual(frame, face_coords, landmarks, emocion, tipo_fase):
+    """
+    Guarda la imagen del rostro recortada y la malla facial en carpetas separadas
+    junto con un cálculo de confianza o coincidencia simulado/métrico.
+    """
+    if face_coords is None:
+        return
+    
+    os.makedirs("dataset_evaluacion/rostros", exist_ok=True)
+    os.makedirs("dataset_evaluacion/mallas", exist_ok=True)
+
+    timestamp_str = time.strftime("%Y%m%d_%H%M%S")
+    
+    # 1. Recortar la pura imagen del rostro
+    xmin, ymin, xmax, ymax = face_coords
+    h, w, _ = frame.shape
+    # Asegurar límites dentro del frame
+    xmin, ymin = max(0, xmin), max(0, ymin)
+    xmax, ymax = min(w, xmax), min(h, ymax)
+    
+    rostro_recorte = frame[ymin:ymax, xmin:xmax]
+    
+    if rostro_recorte.size > 0:
+        path_rostro = f"dataset_evaluacion/rostros/{timestamp_str}_{tipo_fase}_{emocion}.jpg"
+        cv2.imwrite(path_rostro, rostro_recorte)
+
+    # 2. Generar la pura malla sobre fondo negro (Mesh visualization)
+    malla_frame = np.zeros((h, w, 3), dtype=np.uint8)
+    if landmarks:
+        # Dibujar las conexiones de la malla facial de MediaPipe en blanco o cian sobre negro
+        import mediapipe as mp
+        mp_drawing = mp.solutions.drawing_utils
+        mp_face_mesh = mp.solutions.face_mesh
+        
+        mp_drawing.draw_landmarks(
+            image=malla_frame,
+            landmark_list=landmarks,
+            connections=mp_face_mesh.FACEMESH_TESSELATION,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=1, circle_radius=1)
+        )
+    
+        path_malla = f"dataset_evaluacion/mallas/{timestamp_str}_{tipo_fase}_{emocion}_malla.jpg"
+        cv2.imwrite(path_malla, malla_frame)
+
+    print(f"[EVIDENCIA UX] Guardado: Rostro y Malla para la emoción '{emocion}' ({tipo_fase})")
+
 
 if __name__ == "__main__":
     import uvicorn
