@@ -31,10 +31,12 @@ mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
 
 LANDMARKS_CLAVE = [
-    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317,
-    70, 63, 105, 66, 107, 55,
-    336, 296, 334, 293, 300, 285,
-    159, 145, 386, 374, 33, 263
+    # Boca (Comisuras, labio superior e inferior)
+    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317, 84, 314,
+    # Cejas (Extremos e intersección central)
+    70, 63, 105, 66, 107, 55, 336, 296, 334, 293, 300, 285, 46, 276,
+    # Ojos y Párpados (Apertura vertical)
+    159, 145, 386, 374, 33, 263, 133, 362, 144, 373
 ]
 
 def extraer_caracteristicas_clave(landmarks, w, h):
@@ -91,7 +93,14 @@ for carpeta_original, emocion_nuestra in MAPEO_EMOCIONES.items():
 # 5. Entrenar el Modelo
 if len(X) > 0:
     print("\n[ENTRENAMIENTO] Entrenando modelo...")
-    clf = RandomForestClassifier(n_estimators=150, max_depth=15, random_state=42, class_weight="balanced")
+    clf = RandomForestClassifier(
+    n_estimators=200, 
+    max_depth=12, 
+    min_samples_split=5, 
+    class_weight="balanced", 
+    random_state=42
+    )
+    
     clf.fit(np.array(X), np.array(y))
     
     joblib.dump(clf, MODEL_PATH)

@@ -30,9 +30,11 @@ if not os.path.exists(CSV_LOG):
             "Timestamp", 
             "Pregunta_Usuario", 
             "Respuesta_Incoherente", 
-            "Emocion_Fase1", 
+            "Emocion_Fase1",
+            "Coincidencia_Fase1_%",  # NUEVO: Guardar confianza
             "Respuesta_Compensatoria", 
-            "Emocion_Fase2"
+            "Emocion_Fase2",
+            "Coincidencia_Fase2_%"   # NUEVO: Guardar confianza
         ])
 
 app = FastAPI()
@@ -46,7 +48,7 @@ except Exception as e:
     audio_manager = None
     vision_engine = None
 
-# Modificación 1: Añadimos variables para guardar la foto en memoria
+# Estado global compartido para la cámara y el experimento
 estado_experimento = {
     "capturando": False,
     "hablando": False,
@@ -58,6 +60,9 @@ estado_experimento = {
 
 clientes_conectados = set()
 
+# =================================================================
+# UNIFICANDO EL HILO DE LA CÁMARA CON EL SERVIDOR WEB
+# =================================================================
 @app.on_event("startup")
 def iniciar_camara_background():
     hilo_camara = threading.Thread(target=bucle_vision_opencv, daemon=True)
@@ -113,13 +118,20 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
 
+            # NUEVO: Calcular emoción ganadora y su porcentaje promedio (Fase 1)
             if estado_experimento["emociones_buffer"]:
-                emocion_1 = Counter(estado_experimento["emociones_buffer"]).most_common(1)[0][0]
+                emociones_solo = [item[0] for item in estado_experimento["emociones_buffer"]]
+                emocion_1 = Counter(emociones_solo).most_common(1)[0][0]
+                
+                porcentajes = [item[1] for item in estado_experimento["emociones_buffer"] if item[0] == emocion_1]
+                porcentaje_1 = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
             else:
                 emocion_1 = "neutral"
-            print(f"--> [REGISTRADO FASE 1] Emoción detectada: {emocion_1.upper()}")
+                porcentaje_1 = 0.0
+            
+            print(f"--> [REGISTRADO FASE 1] {emocion_1.upper()} (Coincidencia: {porcentaje_1}%)")
 
-            # Modificación 2: Llamamos a tu función para guardar fotos de Fase 1
+            # Guardar evidencia fotográfica y malla
             if estado_experimento["ultimo_frame"] is not None:
                 guardar_evidencia_visual(
                     estado_experimento["ultimo_frame"],
@@ -154,13 +166,19 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
 
+            # NUEVO: Calcular emoción ganadora y su porcentaje promedio (Fase 2)
             if estado_experimento["emociones_buffer"]:
-                emocion_2 = Counter(estado_experimento["emociones_buffer"]).most_common(1)[0][0]
+                emociones_solo = [item[0] for item in estado_experimento["emociones_buffer"]]
+                emocion_2 = Counter(emociones_solo).most_common(1)[0][0]
+                
+                porcentajes = [item[1] for item in estado_experimento["emociones_buffer"] if item[0] == emocion_2]
+                porcentaje_2 = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
             else:
                 emocion_2 = "neutral"
-            print(f"--> [REGISTRADO FASE 2] Emoción detectada: {emocion_2.upper()}")
+                porcentaje_2 = 0.0
+            
+            print(f"--> [REGISTRADO FASE 2] {emocion_2.upper()} (Coincidencia: {porcentaje_2}%)")
 
-            # Modificación 3: Llamamos a tu función para guardar fotos de Fase 2
             if estado_experimento["ultimo_frame"] is not None:
                 guardar_evidencia_visual(
                     estado_experimento["ultimo_frame"],
@@ -179,8 +197,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     pregunta_usuario, 
                     respuesta_inc, 
                     emocion_1,
+                    porcentaje_1,    # Registrando porcentaje Fase 1
                     respuesta_comp,
-                    emocion_2
+                    emocion_2,
+                    porcentaje_2     # Registrando porcentaje Fase 2
                 ])
             print("--> [CSV] Datos guardados exitosamente en registro_patrones_ux.csv")
 
@@ -215,23 +235,24 @@ def bucle_vision_opencv():
 
         frame = cv2.flip(frame, 1)
         
-        # Modificación 4: Desempaquetamos 3 variables (agregamos 'landmarks')
-        prediccion, face_coords, landmarks = vision_engine.procesar_frame(frame)
+        # NUEVO: Recibimos 4 valores desde vision_engine.py
+        prediccion, porcentaje, face_coords, landmarks = vision_engine.procesar_frame(frame)
 
         if prediccion and face_coords:
-            # Modificación 5: Guardamos una copia exacta para enviar a las carpetas
             estado_experimento["ultimo_frame"] = frame.copy()
             estado_experimento["ultimas_coordenadas"] = face_coords
             estado_experimento["ultimos_landmarks"] = landmarks
 
             if estado_experimento["capturando"]:
-                estado_experimento["emociones_buffer"].append(prediccion)
+                # Guardamos la tupla (emocion, porcentaje) en el búfer
+                estado_experimento["emociones_buffer"].append((prediccion, porcentaje))
 
             xmin, ymin, xmax, ymax = face_coords
             color_box = (0, 0, 255) if estado_experimento["capturando"] else (0, 255, 0)
 
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color_box, 2)
-            texto_emocion = f"Emocion: {prediccion.upper()}"
+            # Mostrar la emoción y el % de certeza visualmente en la cámara
+            texto_emocion = f"{prediccion.upper()} ({porcentaje}%)"
             cv2.rectangle(frame, (xmin, ymin - 30), (xmax, ymin), color_box, -1)
             cv2.putText(frame, texto_emocion, (xmin + 5, ymin - 8), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -281,7 +302,6 @@ def guardar_evidencia_visual(frame, face_coords, landmarks, emocion, tipo_fase):
     # 2. Generar la pura malla sobre fondo negro (Mesh visualization)
     malla_frame = np.zeros((h, w, 3), dtype=np.uint8)
     if landmarks:
-        # Dibujar las conexiones de la malla facial de MediaPipe en blanco o cian sobre negro
         import mediapipe as mp
         mp_drawing = mp.solutions.drawing_utils
         mp_face_mesh = mp.solutions.face_mesh

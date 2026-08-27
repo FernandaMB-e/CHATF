@@ -18,14 +18,12 @@ face_mesh = mp_face_mesh.FaceMesh(
 
 # PUNTOS CLAVE DE EXPRESIÓN (Cejas, Ojos, Boca)
 LANDMARKS_CLAVE = [
-    # Boca
-    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317,
-    # Ceja Izquierda
-    70, 63, 105, 66, 107, 55,
-    # Ceja Derecha
-    336, 296, 334, 293, 300, 285,
-    # Ojos (arriba/abajo)
-    159, 145, 386, 374, 33, 263
+    # Boca (Comisuras, labio superior e inferior)
+    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317, 84, 314,
+    # Cejas (Extremos e intersección central)
+    70, 63, 105, 66, 107, 55, 336, 296, 334, 293, 300, 285, 46, 276,
+    # Ojos y Párpados (Apertura vertical)
+    159, 145, 386, 374, 33, 263, 133, 362, 144, 373
 ]
 
 def extraer_caracteristicas_clave(landmarks):
@@ -106,7 +104,13 @@ while cap.isOpened():
     elif key == 13: # ENTER
         if len(set(y)) >= 3:
             print("\n[ENTRENAMIENTO] Entrenando clasificador optimizado...")
-            clf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+            clf = RandomForestClassifier(
+            n_estimators=200, 
+            max_depth=12, 
+             min_samples_split=5, 
+            class_weight="balanced", 
+            random_state=42
+)
             clf.fit(np.array(X), np.array(y))
             joblib.dump(clf, MODEL_PATH)
             print(f"[ÉXITO] Modelo de alta precisión guardado en: {MODEL_PATH}")

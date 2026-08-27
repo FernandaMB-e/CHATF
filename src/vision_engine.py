@@ -5,10 +5,12 @@ import numpy as np
 import joblib
 
 LANDMARKS_CLAVE = [
-    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317,
-    70, 63, 105, 66, 107, 55,
-    336, 296, 334, 293, 300, 285,
-    159, 145, 386, 374, 33, 263
+    # Boca (Comisuras, labio superior e inferior)
+    61, 291, 0, 17, 13, 14, 78, 308, 82, 312, 87, 317, 84, 314,
+    # Cejas (Extremos e intersección central)
+    70, 63, 105, 66, 107, 55, 336, 296, 334, 293, 300, 285, 46, 276,
+    # Ojos y Párpados (Apertura vertical)
+    159, 145, 386, 374, 33, 263, 133, 362, 144, 373
 ]
 
 class VisionEngine:
@@ -43,14 +45,23 @@ class VisionEngine:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(rgb_frame)
 
-        
         if not results.multi_face_landmarks:
-            return None, None, None
+            return None, None, None, None # Agregamos un None extra para el porcentaje
 
         for face_landmarks in results.multi_face_landmarks:
             features = self.extraer_caracteristicas_clave(face_landmarks.landmark, w, h)
             
+            # 1. Obtenemos la emoción ganadora
             prediccion = self.model.predict([features])[0]
+            
+            # 2. Calculamos el porcentaje de coincidencia (Confianza del modelo)
+            try:
+                probabilidades = self.model.predict_proba([features])[0]
+                indice_clase = list(self.model.classes_).index(prediccion)
+                porcentaje_coincidencia = round(probabilidades[indice_clase] * 100, 2)
+            except AttributeError:
+                # Por si tu modelo (ej. SVM lineal) no tiene activada la probabilidad
+                porcentaje_coincidencia = 100.0
 
             x_coords = [int(lm.x * w) for lm in face_landmarks.landmark]
             y_coords = [int(lm.y * h) for lm in face_landmarks.landmark]
@@ -58,7 +69,7 @@ class VisionEngine:
             xmin, xmax = max(0, min(x_coords)), min(w, max(x_coords))
             ymin, ymax = max(0, min(y_coords)), min(h, max(y_coords))
 
-            # Modificación 2: Añadir face_landmarks al retorno
-            return prediccion, (xmin, ymin, xmax, ymax), face_landmarks
+            # Devolvemos 4 datos ahora
+            return prediccion, porcentaje_coincidencia, (xmin, ymin, xmax, ymax), face_landmarks
 
-        return None, None, None
+        return None, None, None, None
