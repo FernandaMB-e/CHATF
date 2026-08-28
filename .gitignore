@@ -14,3 +14,6 @@ data/
 train/
 
 .env
+
+# Evidencias visuales del experimento UX
+dataset_evaluacion/

@@ -100,7 +100,7 @@ async def websocket_endpoint(websocket: WebSocket):
             
             await notificar_clientes({
                 "estado": "hablando", 
-                "texto": f"<b>[Incoherente]:</b> {respuesta_inc}", 
+                "texto": f"[Incoherente]: {respuesta_inc}", 
                 "tipo": "ia-incoherente"
             })
 
@@ -148,7 +148,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             await notificar_clientes({
                 "estado": emocion_1, 
-                "texto": f"<b>[Corrección]:</b> {respuesta_comp}", 
+                "texto": f"[Corrección]: {respuesta_comp}", 
                 "tipo": "ia-correcta"
             })
 
