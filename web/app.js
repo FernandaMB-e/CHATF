@@ -13,10 +13,13 @@ const brilloDer = document.getElementById('brillo-der');
 const ruborIzq = document.getElementById('rubor-izq');
 const ruborDer = document.getElementById('rubor-der');
 const efectosAnimar = document.getElementById('efectos-animar');
-
+const btnMic = document.getElementById('btn-mic')
 
 // Conexión WebSocket con el servidor Python (FastAPI)
 const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+// Configuración nativa de Web Speech API
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
 
 ws.onopen = () => {
     console.log("[CONEXIÓN] Conectado al servidor de Inteligencia Artificial afectiva.");
@@ -59,6 +62,48 @@ function agregarMensaje(texto, tipo) {
     divMensaje.textContent = texto;
     chatHistorial.appendChild(divMensaje);
     chatHistorial.scrollTop = chatHistorial.scrollHeight;
+}
+
+
+if (SpeechRecognition) {
+    const reconocimiento = new SpeechRecognition();
+    reconocimiento.lang = 'es-MX'; // Configurado para acento y vocabulario local
+    reconocimiento.continuous = false;
+    reconocimiento.interimResults = false;
+
+    // Al hacer clic en el micrófono
+    btnMic.addEventListener('click', () => {
+        reconocimiento.start();
+        btnMic.classList.add('grabando');
+        inputPregunta.placeholder = "Escuchando...";
+    });
+
+    // Cuando detecta lo que dijiste
+    reconocimiento.onresult = (evento) => {
+        const transcripcion = evento.results[0][0].transcript;
+        inputPregunta.value = transcripcion; // Pone el texto en la barra
+        
+        btnMic.classList.remove('grabando');
+        inputPregunta.placeholder = "Escribe o dicta tu pregunta...";
+        
+        // Opcional: Descomenta la siguiente línea si quieres que se envíe sola al terminar de hablar
+        // btnEnviar.click(); 
+    };
+
+    // Si ocurre un error o hay silencio absoluto
+    reconocimiento.onerror = (evento) => {
+        console.error("Error de reconocimiento: ", evento.error);
+        btnMic.classList.remove('grabando');
+        inputPregunta.placeholder = "Escribe o dicta tu pregunta...";
+    };
+
+    reconocimiento.onspeechend = () => {
+        reconocimiento.stop();
+    };
+
+} else {
+    console.warn("Tu navegador actual no soporta dictado por voz.");
+    btnMic.style.display = "none"; // Oculta el botón si el navegador no es compatible (ej. Firefox antiguo)
 }
 
 // Control dinámico de las expresiones del SVG
@@ -155,3 +200,5 @@ inputPregunta.addEventListener('keypress', (e) => {
         manejarEnvio();
     }
 });
+
+
