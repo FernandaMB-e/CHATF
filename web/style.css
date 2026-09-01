@@ -41,7 +41,8 @@ body {
 
 .ojo {
   transform-origin: center;
-  animation: parpadeo 4.5s infinite;
+  animation: parpadeo 4.2s infinite;
+  transition: transform 0.3s ease;
 }
 
 @keyframes flotar {
@@ -49,8 +50,36 @@ body {
   50% { transform: translateY(-15px); }
 }
 @keyframes parpadeo {
-  0%, 90%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.05); }
+  0%, 93%, 100% { transform: scaleY(1); }
+  96.5% { transform: scaleY(0.05); }
+}
+
+body.estado-incoherente .ojo,
+body.estado-incoherente #brillo-izq,
+body.estado-incoherente #brillo-der {
+    animation: mirar-arriba-temblar 0.1s infinite alternate;
+}
+
+@keyframes mirar-arriba-temblar {
+    0% { transform: translateY(-8px) translateX(-1px); }
+    100% { transform: translateY(-8px) translateX(1px); }
+}
+
+body.estado-correccion .ojo {
+    animation: ojo-empatico 2s infinite alternate ease-in-out;
+    /* Fuerza a que parezcan cerrados/felices ignorando el atributo ry de JS */
+    transform: scaleY(0.15) translateY(-5px) !important; 
+}
+
+
+body.estado-correccion #brillo-izq,
+body.estado-correccion #brillo-der {
+    opacity: 0 !important;
+}
+
+@keyframes ojo-empatico {
+    0% { transform: scaleY(0.15) translateY(-5px); }
+    100% { transform: scaleY(0.20) translateY(-3px); }
 }
 
 .zona-interaccion {

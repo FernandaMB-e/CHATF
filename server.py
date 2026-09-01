@@ -109,7 +109,7 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = True
 
             if audio_manager:
-                await loop.run_in_executor(None, audio_manager.hablar, respuesta_inc)
+                await loop.run_in_executor(None, audio_manager.speak_error, respuesta_inc)
             else:
                 await asyncio.sleep(2.0)
 
@@ -157,7 +157,7 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = True
 
             if audio_manager:
-                await loop.run_in_executor(None, audio_manager.hablar, respuesta_comp)
+                await loop.run_in_executor(None, audio_manager.speak_success, respuesta_comp)
             else:
                 await asyncio.sleep(2.0)
 

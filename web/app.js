@@ -108,6 +108,7 @@ if (SpeechRecognition) {
 
 // Control dinámico de las expresiones del SVG
 function cambiarExpresion(emocion) {
+    document.body.classList.remove('estado-incoherente', 'estado-correccion');
     // 1. Valores Neutrales por defecto
     let dBoca = 'M 85 125 Q 100 135 115 125';
     let dCejaIzq = 'M 55 75 Q 65 70 75 75';
@@ -120,14 +121,23 @@ function cambiarExpresion(emocion) {
 
     // 2. Comportamientos empáticos para cada emoción
     if (emocion === 'frustracion' || emocion === 'enojo') {
+        document.body.classList.add('estado-correccion');
         // Disculpa empática: Ojos cerrados (ry=2), rubor intenso y grande, sonrisa apenada, cejas compasivas
         dBoca = 'M 80 128 Q 100 135 120 128'; 
         dCejaIzq = 'M 55 75 Q 65 60 75 80'; 
         dCejaDer = 'M 125 80 Q 135 60 145 75';
-        ryOjo = '2'; // Cierra los ojos
-        opBrillo = '0'; // Quita el brillo blanco
-        colorRubor = '#ff4757'; // Cachetes más rojos
-        radioRubor = '18'; // Cachetes más grandes
+        colorRubor = '#ff4757'; 
+        radioRubor = '18';
+
+    } else if (emocion === 'incoherente') {
+        // La IA está dando la mala respuesta intencionalmente: Ojos temblando y Fondo Frío
+        document.body.classList.add('estado-incoherente');
+        
+        dBoca = 'M 85 125 Q 100 120 115 125'; // Boca recta/tensa
+        dCejaIzq = 'M 55 75 Q 65 85 75 75'; // Cejas ligeramente hacia abajo
+        dCejaDer = 'M 125 75 Q 135 85 145 75';
+        opBrillo = '1';
+        
         
     } else if (emocion === 'tristeza') {
         // Intentar animar: Boca cantando, notas musicales y corazones
