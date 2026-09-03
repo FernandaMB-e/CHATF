@@ -12,6 +12,9 @@ import cv2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+import matplotlib
+matplotlib.use('Agg')  
+import matplotlib.pyplot as plt
 
 # Importar tus módulos existentes
 from src.database import obtener_respuesta_incoherente, obtener_respuesta_compensatoria
@@ -118,18 +121,13 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
 
-            # NUEVO: Calcular emoción ganadora y su porcentaje promedio (Fase 1)
-            if estado_experimento["emociones_buffer"]:
-                emociones_solo = [item[0] for item in estado_experimento["emociones_buffer"]]
-                emocion_1 = Counter(emociones_solo).most_common(1)[0][0]
-                
-                porcentajes = [item[1] for item in estado_experimento["emociones_buffer"] if item[0] == emocion_1]
-                porcentaje_1 = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
-            else:
-                emocion_1 = "neutral"
-                porcentaje_1 = 0.0
-            
-            print(f"--> [REGISTRADO FASE 1] {emocion_1.upper()} (Coincidencia: {porcentaje_1}%)")
+            # Calcular emoción dominante + duraciones de Fase 1 (sin graficar todavía)
+            emocion_1, porcentaje_1, duraciones_fase1 = analizar_emociones(
+                estado_experimento["emociones_buffer"]
+            )
+
+            print(f"--> [REGISTRADO FASE 1] Dominante: {emocion_1.upper()} ({porcentaje_1}%)")
+            print(f"    Micro-expresiones detectadas: {duraciones_fase1}")
 
             # Guardar evidencia fotográfica y malla
             if estado_experimento["ultimo_frame"] is not None:
@@ -166,18 +164,13 @@ async def websocket_endpoint(websocket: WebSocket):
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
 
-            # NUEVO: Calcular emoción ganadora y su porcentaje promedio (Fase 2)
-            if estado_experimento["emociones_buffer"]:
-                emociones_solo = [item[0] for item in estado_experimento["emociones_buffer"]]
-                emocion_2 = Counter(emociones_solo).most_common(1)[0][0]
-                
-                porcentajes = [item[1] for item in estado_experimento["emociones_buffer"] if item[0] == emocion_2]
-                porcentaje_2 = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
-            else:
-                emocion_2 = "neutral"
-                porcentaje_2 = 0.0
-            
-            print(f"--> [REGISTRADO FASE 2] {emocion_2.upper()} (Coincidencia: {porcentaje_2}%)")
+            # Calcular emoción dominante + duraciones de Fase 2 (sin graficar todavía)
+            emocion_2, porcentaje_2, duraciones_fase2 = analizar_emociones(
+                estado_experimento["emociones_buffer"]
+            )
+
+            print(f"--> [REGISTRADO FASE 2] Dominante: {emocion_2.upper()} ({porcentaje_2}%)")
+            print(f"    Micro-expresiones detectadas: {duraciones_fase2}")
 
             if estado_experimento["ultimo_frame"] is not None:
                 guardar_evidencia_visual(
@@ -187,6 +180,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     emocion_2,
                     "fase2"
                 )
+
+            # --- GRAFICA COMPARATIVA (Fase 1 y Fase 2 en una sola imagen) ---
+            timestamp_comparativa = time.strftime("%Y%m%d_%H%M%S")
+            graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_2, timestamp_comparativa)
 
             # --- GUARDAR EN CSV ---
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -235,7 +232,7 @@ def bucle_vision_opencv():
 
         frame = cv2.flip(frame, 1)
         
-        # NUEVO: Recibimos 4 valores desde vision_engine.py
+        # Recibimos 4 valores desde vision_engine.py
         prediccion, porcentaje, face_coords, landmarks = vision_engine.procesar_frame(frame)
 
         if prediccion and face_coords:
@@ -244,8 +241,8 @@ def bucle_vision_opencv():
             estado_experimento["ultimos_landmarks"] = landmarks
 
             if estado_experimento["capturando"]:
-                # Guardamos la tupla (emocion, porcentaje) en el búfer
-                estado_experimento["emociones_buffer"].append((prediccion, porcentaje))
+                # Guardamos la tupla (emocion, porcentaje, timestamp) en el búfer
+                estado_experimento["emociones_buffer"].append((prediccion, porcentaje, time.time()))
 
             xmin, ymin, xmax, ymax = face_coords
             color_box = (0, 0, 255) if estado_experimento["capturando"] else (0, 255, 0)
@@ -318,6 +315,86 @@ def guardar_evidencia_visual(frame, face_coords, landmarks, emocion, tipo_fase):
         cv2.imwrite(path_malla, malla_frame)
 
     print(f"[EVIDENCIA UX] Guardado: Rostro y Malla para la emoción '{emocion}' ({tipo_fase})")
+
+
+def analizar_emociones(buffer):
+    """
+    Calcula la emoción dominante, su % promedio, y las duraciones
+    de todas las emociones detectadas en el buffer. NO genera gráfica
+    (eso lo hace graficar_ambas_fases, una sola vez al final de cada
+    interacción, con los datos de Fase 1 y Fase 2 juntos).
+    """
+    if not buffer or len(buffer) < 2:
+        return "neutral", 0.0, {}
+    
+    duraciones = {}
+    
+    # Calcular el tiempo transcurrido (delta) entre cada frame
+    for i in range(len(buffer) - 1):
+        emocion = buffer[i][0]
+        t_actual = buffer[i][2]
+        t_siguiente = buffer[i+1][2]
+        delta = t_siguiente - t_actual
+        
+        duraciones[emocion] = duraciones.get(emocion, 0.0) + delta
+        
+    # Identificar la emoción principal (la que más tiempo duró)
+    emocion_principal = max(duraciones, key=duraciones.get)
+    
+    # Calcular porcentaje de confianza promedio solo de la principal
+    porcentajes = [item[1] for item in buffer if item[0] == emocion_principal]
+    porcentaje_promedio = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
+    
+    return emocion_principal, porcentaje_promedio, duraciones
+
+
+def graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_2, timestamp_str):
+    """
+    Dibuja Fase 1 y Fase 2 como dos subplots dentro de UNA sola figura/imagen.
+    """
+    os.makedirs("dataset_evaluacion/graficas", exist_ok=True)
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    
+    _dibujar_subplot(ax1, duraciones_fase1, emocion_1, "FASE 1 (Respuesta Incoherente)")
+    _dibujar_subplot(ax2, duraciones_fase2, emocion_2, "FASE 2 (Respuesta Compensatoria)")
+    
+    fig.suptitle('Análisis de Reacción y Micro-expresiones UX', fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    
+    ruta_grafica = f"dataset_evaluacion/graficas/{timestamp_str}_comparativa.png"
+    plt.savefig(ruta_grafica, bbox_inches='tight')
+    plt.close()
+    
+    print(f"[GRAFICA] Guardada comparativa Fase 1 vs Fase 2: {ruta_grafica}")
+    return ruta_grafica
+
+
+def _dibujar_subplot(ax, duraciones, emocion_principal, titulo):
+    """
+    Dibuja las barras de una fase dentro de un eje (subplot) ya existente.
+    """
+    if not duraciones:
+        ax.set_title(f'{titulo}\n(sin datos suficientes)')
+        ax.axis('off')
+        return
+    
+    emociones_list = list(duraciones.keys())
+    tiempos_list = list(duraciones.values())
+    # Color rojo para la dominante, azul para las micro-expresiones
+    colores = ['#e74c3c' if e == emocion_principal else '#3498db' for e in emociones_list]
+    
+    barras = ax.bar(emociones_list, tiempos_list, color=colores)
+    ax.set_title(f'{titulo}\nDominante: {emocion_principal.upper()}')
+    ax.set_xlabel('Emociones Detectadas')
+    ax.set_ylabel('Tiempo de duración (Segundos)')
+    ax.set_ylim(0, max(tiempos_list) + 1.0)  # Margen visual superior
+    
+    # Poner la etiqueta de segundos exacta encima de cada barra
+    for barra in barras:
+        yval = barra.get_height()
+        ax.text(barra.get_x() + barra.get_width()/2, yval + 0.05, f'{yval:.2f}s', 
+                ha='center', va='bottom', fontweight='bold')
 
 
 if __name__ == "__main__":
