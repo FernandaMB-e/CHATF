@@ -120,10 +120,15 @@ async def websocket_endpoint(websocket: WebSocket):
             
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
+            timestamp_cierre_fase1 = time.time()
 
             # Calcular emoción dominante + duraciones de Fase 1 (sin graficar todavía)
             emocion_1, porcentaje_1, duraciones_fase1 = analizar_emociones(
-                estado_experimento["emociones_buffer"]
+                estado_experimento["emociones_buffer"], timestamp_cierre=timestamp_cierre_fase1
+            )
+            # Segmentos individuales (cada reacción por separado, en orden cronológico)
+            segmentos_fase1 = calcular_segmentos_emociones(
+                estado_experimento["emociones_buffer"], timestamp_cierre=timestamp_cierre_fase1
             )
 
             print(f"--> [REGISTRADO FASE 1] Dominante: {emocion_1.upper()} ({porcentaje_1}%)")
@@ -163,10 +168,15 @@ async def websocket_endpoint(websocket: WebSocket):
 
             estado_experimento["hablando"] = False
             estado_experimento["capturando"] = False
+            timestamp_cierre_fase2 = time.time()
 
             # Calcular emoción dominante + duraciones de Fase 2 (sin graficar todavía)
             emocion_2, porcentaje_2, duraciones_fase2 = analizar_emociones(
-                estado_experimento["emociones_buffer"]
+                estado_experimento["emociones_buffer"], timestamp_cierre=timestamp_cierre_fase2
+            )
+            # Segmentos individuales (cada reacción por separado, en orden cronológico)
+            segmentos_fase2 = calcular_segmentos_emociones(
+                estado_experimento["emociones_buffer"], timestamp_cierre=timestamp_cierre_fase2
             )
 
             print(f"--> [REGISTRADO FASE 2] Dominante: {emocion_2.upper()} ({porcentaje_2}%)")
@@ -181,9 +191,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     "fase2"
                 )
 
-            # --- GRAFICA COMPARATIVA (Fase 1 y Fase 2 en una sola imagen) ---
+            # --- GRAFICA COMPARATIVA (Fase 1, Fase 2 y línea de tiempo, en una sola imagen) ---
             timestamp_comparativa = time.strftime("%Y%m%d_%H%M%S")
-            graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_2, timestamp_comparativa)
+            graficar_ambas_fases(
+                duraciones_fase1, emocion_1,
+                duraciones_fase2, emocion_2,
+                segmentos_fase1, segmentos_fase2,
+                timestamp_comparativa
+            )
 
             # --- GUARDAR EN CSV ---
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -317,47 +332,109 @@ def guardar_evidencia_visual(frame, face_coords, landmarks, emocion, tipo_fase):
     print(f"[EVIDENCIA UX] Guardado: Rostro y Malla para la emoción '{emocion}' ({tipo_fase})")
 
 
-def analizar_emociones(buffer):
+def calcular_segmentos_emociones(buffer, timestamp_cierre=None):
     """
-    Calcula la emoción dominante, su % promedio, y las duraciones
-    de todas las emociones detectadas en el buffer. NO genera gráfica
-    (eso lo hace graficar_ambas_fases, una sola vez al final de cada
-    interacción, con los datos de Fase 1 y Fase 2 juntos).
+    Divide el buffer en segmentos de emociones CONSECUTIVAS (runs). Cada vez
+    que la emoción detectada cambia respecto al frame anterior, se cierra el
+    segmento actual y se abre uno nuevo.
+
+    A diferencia de un simple conteo por categoría, esto conserva cada
+    aparición por separado y en su orden cronológico real — por ejemplo, si
+    el usuario estuvo 'neutral' al inicio y volvió a estar 'neutral' después
+    de un pico de 'frustracion', aquí quedan como DOS segmentos distintos,
+    no sumados en uno solo.
+
+    El último segmento se extiende hasta timestamp_cierre (el momento real
+    en que se detuvo la captura), para no perder duración si la última
+    expresión se sostuvo hasta el corte.
+
+    Devuelve una lista de dicts en orden cronológico:
+    [{"emocion": str, "duracion": float, "porcentaje": float}, ...]
     """
     if not buffer or len(buffer) < 2:
+        return []
+
+    segmentos = []
+    emocion_actual = buffer[0][0]
+    inicio_actual = buffer[0][2]
+    porcentajes_actual = [buffer[0][1]]
+
+    for i in range(1, len(buffer)):
+        emocion, porcentaje, t = buffer[i]
+        if emocion != emocion_actual:
+            # Cerrar el segmento anterior justo en el timestamp de este frame
+            duracion = t - inicio_actual
+            porcentaje_prom = round(sum(porcentajes_actual) / len(porcentajes_actual), 2)
+            segmentos.append({
+                "emocion": emocion_actual,
+                "duracion": duracion,
+                "porcentaje": porcentaje_prom
+            })
+            # Abrir un nuevo segmento
+            emocion_actual = emocion
+            inicio_actual = t
+            porcentajes_actual = [porcentaje]
+        else:
+            porcentajes_actual.append(porcentaje)
+
+    # Cerrar el último segmento, extendiéndolo hasta el cierre real de captura
+    ultimo_timestamp = buffer[-1][2]
+    cierre = timestamp_cierre if timestamp_cierre is not None else ultimo_timestamp
+    duracion_final = max(0.0, cierre - inicio_actual)
+    porcentaje_prom = round(sum(porcentajes_actual) / len(porcentajes_actual), 2)
+    segmentos.append({
+        "emocion": emocion_actual,
+        "duracion": duracion_final,
+        "porcentaje": porcentaje_prom
+    })
+
+    return segmentos
+
+
+def analizar_emociones(buffer, timestamp_cierre=None):
+    """
+    Calcula la emoción dominante (por DURACIÓN total acumulada, no por
+    frecuencia de frames) y su % promedio de confianza. Internamente
+    reutiliza calcular_segmentos_emociones, así que el total de cada
+    emoción aquí SIEMPRE coincide exactamente con la suma de los
+    segmentos individuales que se muestran en la línea de tiempo.
+    """
+    segmentos = calcular_segmentos_emociones(buffer, timestamp_cierre=timestamp_cierre)
+
+    if not segmentos:
         return "neutral", 0.0, {}
-    
+
     duraciones = {}
-    
-    # Calcular el tiempo transcurrido (delta) entre cada frame
-    for i in range(len(buffer) - 1):
-        emocion = buffer[i][0]
-        t_actual = buffer[i][2]
-        t_siguiente = buffer[i+1][2]
-        delta = t_siguiente - t_actual
-        
-        duraciones[emocion] = duraciones.get(emocion, 0.0) + delta
-        
-    # Identificar la emoción principal (la que más tiempo duró)
+    for seg in segmentos:
+        duraciones[seg["emocion"]] = duraciones.get(seg["emocion"], 0.0) + seg["duracion"]
+
+    # Identificar la emoción principal (la que más tiempo acumulado tuvo)
     emocion_principal = max(duraciones, key=duraciones.get)
-    
+
     # Calcular porcentaje de confianza promedio solo de la principal
     porcentajes = [item[1] for item in buffer if item[0] == emocion_principal]
     porcentaje_promedio = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else 0.0
-    
+
     return emocion_principal, porcentaje_promedio, duraciones
 
 
-def graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_2, timestamp_str):
+def graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_2,
+                          segmentos_fase1, segmentos_fase2, timestamp_str):
     """
-    Dibuja Fase 1 y Fase 2 como dos subplots dentro de UNA sola figura/imagen.
+    Genera UNA sola imagen con TRES paneles:
+      1) Fase 1 - tiempo TOTAL acumulado por categoría de emoción.
+      2) Fase 2 - tiempo TOTAL acumulado por categoría de emoción.
+      3) Línea de tiempo con cada reacción/segmento POR SEPARADO, en orden
+         cronológico, mostrando la duración exacta de cada micro-expresión
+         detectada (sin mezclar apariciones repetidas de la misma emoción).
     """
     os.makedirs("dataset_evaluacion/graficas", exist_ok=True)
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(21, 5.5))
     
     _dibujar_subplot(ax1, duraciones_fase1, emocion_1, "FASE 1 (Respuesta Incoherente)")
     _dibujar_subplot(ax2, duraciones_fase2, emocion_2, "FASE 2 (Respuesta Compensatoria)")
+    _dibujar_timeline_segmentos(ax3, segmentos_fase1, segmentos_fase2)
     
     fig.suptitle('Análisis de Reacción y Micro-expresiones UX', fontsize=14, fontweight='bold')
     plt.tight_layout()
@@ -366,13 +443,14 @@ def graficar_ambas_fases(duraciones_fase1, emocion_1, duraciones_fase2, emocion_
     plt.savefig(ruta_grafica, bbox_inches='tight')
     plt.close()
     
-    print(f"[GRAFICA] Guardada comparativa Fase 1 vs Fase 2: {ruta_grafica}")
+    print(f"[GRAFICA] Guardada comparativa (Fase 1, Fase 2, Timeline): {ruta_grafica}")
     return ruta_grafica
 
 
 def _dibujar_subplot(ax, duraciones, emocion_principal, titulo):
     """
-    Dibuja las barras de una fase dentro de un eje (subplot) ya existente.
+    Dibuja las barras de TOTAL acumulado por emoción de una fase, dentro de
+    un eje (subplot) ya existente.
     """
     if not duraciones:
         ax.set_title(f'{titulo}\n(sin datos suficientes)')
@@ -395,6 +473,98 @@ def _dibujar_subplot(ax, duraciones, emocion_principal, titulo):
         yval = barra.get_height()
         ax.text(barra.get_x() + barra.get_width()/2, yval + 0.05, f'{yval:.2f}s', 
                 ha='center', va='bottom', fontweight='bold')
+
+
+def _construir_mapa_colores(segmentos_fase1, segmentos_fase2):
+    """
+    Asigna un color estable a cada emoción única que aparece en los
+    segmentos de ambas fases, usando la paleta tab10 (10 colores bien
+    diferenciados). Así 'frustracion' siempre se ve del mismo color en la
+    línea de tiempo, sin importar cuántas veces se repita.
+    """
+    emociones_unicas = sorted({s["emocion"] for s in (segmentos_fase1 + segmentos_fase2)})
+    paleta = plt.cm.tab10.colors
+    return {emocion: paleta[i % len(paleta)] for i, emocion in enumerate(emociones_unicas)}
+
+def _dibujar_timeline_segmentos(ax, segmentos_fase1, segmentos_fase2):
+    """
+    Dibuja una línea de tiempo estilo Gantt. Extrae los textos de las 
+    micro-expresiones hacia arriba con líneas apuntadoras (Callouts) 
+    para evitar que se encimen.
+    """
+    if not segmentos_fase1 and not segmentos_fase2:
+        ax.set_title("Línea de Tiempo por Reacción\n(sin datos suficientes)")
+        ax.axis('off')
+        return
+
+    mapa_colores = _construir_mapa_colores(segmentos_fase1, segmentos_fase2)
+
+    # Reducimos un poco el grosor de la barra y separamos más las fases
+    # para tener espacio vertical donde dibujar los textos de las micro-expresiones.
+    ALTO_BARRA = 6
+    Y_FASE2 = 0
+    Y_FASE1 = 20 
+
+    def _dibujar_fila(segmentos, y_base):
+        t_cursor = 0.0
+        stagger_idx = 0
+        # 4 niveles de escalonamiento para el texto fuera de la barra
+        niveles_y_afuera = [0.5, 3.0, 5.5, 8.0] 
+
+        for seg in segmentos:
+            color = mapa_colores[seg["emocion"]]
+            duracion = seg["duracion"]
+            
+            # Dibujar la barra del segmento
+            ax.broken_barh(
+                [(t_cursor, duracion)],
+                (y_base, ALTO_BARRA),
+                facecolors=color,
+                edgecolors='white',
+                linewidth=1
+            )
+            
+            centro_x = t_cursor + duracion / 2
+            
+            # 1. Si la emoción dura más de 0.8s, el texto cabe perfectamente adentro.
+            if duracion >= 0.8:
+                ax.text(
+                    centro_x, y_base + ALTO_BARRA / 2,
+                    f'{duracion:.2f}s',
+                    ha='center', va='center', fontsize=7.5, color='white', 
+                    fontweight='bold', rotation=90
+                )
+            
+            # 2. Si es micro-expresión (< 0.8s), sacamos el texto hacia arriba con una línea.
+            # Ignoramos el ruido imperceptible de la cámara menor a 0.03s.
+            elif duracion >= 0.03: 
+                offset_y = niveles_y_afuera[stagger_idx % len(niveles_y_afuera)]
+                stagger_idx += 1
+                
+                ax.annotate(
+                    f'{duracion:.2f}',
+                    xy=(centro_x, y_base + ALTO_BARRA), # Punto de origen (techo de la barra)
+                    xytext=(centro_x, y_base + ALTO_BARRA + offset_y), # Destino (texto elevado)
+                    ha='center', va='bottom', fontsize=6.5, color='black', 
+                    fontweight='bold', rotation=90,
+                    arrowprops=dict(arrowstyle="-", lw=0.6, color='gray') # Línea conectora
+                )
+            
+            t_cursor += duracion
+
+    _dibujar_fila(segmentos_fase1, Y_FASE1)
+    _dibujar_fila(segmentos_fase2, Y_FASE2)
+
+    ax.set_yticks([Y_FASE1 + ALTO_BARRA / 2, Y_FASE2 + ALTO_BARRA / 2])
+    ax.set_yticklabels(['Fase 1', 'Fase 2'])
+    ax.set_xlabel('Tiempo transcurrido en la fase (segundos)')
+    ax.set_title('Línea de Tiempo por Reacción\n(cada segmento = una micro-expresión)')
+
+    # Aumentamos el límite superior para que la gráfica no recorte los textos elevados
+    ax.set_ylim(Y_FASE2 - 2, Y_FASE1 + ALTO_BARRA + 12)
+
+    handles = [plt.Rectangle((0, 0), 1, 1, color=color) for color in mapa_colores.values()]
+    ax.legend(handles, mapa_colores.keys(), loc='upper right', fontsize=8, ncol=2)
 
 
 if __name__ == "__main__":
