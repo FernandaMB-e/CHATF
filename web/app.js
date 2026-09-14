@@ -29,11 +29,6 @@ ws.onopen = () => {
 ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     
-    // Actualizar texto de estado inferior
-    if (data.texto && data.estado) {
-        estadoTexto.textContent = data.texto;
-    }
-
     // Cambiar expresiones de la carita según la orden de Python
     cambiarExpresion(data.estado);
 

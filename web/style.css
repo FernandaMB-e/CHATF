@@ -21,6 +21,7 @@ body {
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
+  transition: background 1.5s ease; /* CORRECCIÓN: permite que el fondo del avatar transicione junto con el del body */
 }
 .zona-avatar .avatar-container {
   width: 350px;
@@ -68,7 +69,7 @@ body.estado-incoherente #brillo-der {
 body.estado-correccion .ojo {
     animation: ojo-empatico 2s infinite alternate ease-in-out;
     /* Fuerza a que parezcan cerrados/felices ignorando el atributo ry de JS */
-    transform: scaleY(0.15) translateY(-5px) !important; 
+    transform: scaleY(0.15) translateY(-5px) !important;
 }
 
 
@@ -170,6 +171,18 @@ body.estado-incoherente {
 
 body.estado-correccion {
     background-color: #fff8e1; /* Estado Empático: tono cálido/alivio */
+}
+
+/* CORRECCIÓN: la zona del avatar tiene su propio gradiente de fondo que tapaba
+   el background-color del body. Estas reglas hacen que .zona-avatar también
+   cambie de tono cuando el body entra en cada estado, usando los mismos
+   colores fríos/cálidos que ya definiste arriba. */
+body.estado-incoherente .zona-avatar {
+    background: linear-gradient(135deg, #d8e0e8 0%, #eef1f4 100%);
+}
+
+body.estado-correccion .zona-avatar {
+    background: linear-gradient(135deg, #fff8e1 0%, #fffdf5 100%);
 }
 
 /* ===== BOTÓN DEL MICRÓFONO ===== */
