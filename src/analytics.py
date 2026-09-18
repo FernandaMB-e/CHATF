@@ -1,3 +1,10 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+Descripción: [Analytics es un módulo que genera gráficas comparativas de emociones detectadas en dos fases del ciclo de computación afectiva]
+"""
+
+
 import os
 import pandas as pd
 import matplotlib.pyplot as plt

@@ -1,3 +1,9 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
+
+
 import os
 import cv2
 import mediapipe as mp
@@ -136,7 +142,7 @@ while cap.isOpened():
             ultimo_mensaje = f"-> Capturado en vivo: {emocion_sel.upper()} | Total: {len(X)}"
             print(f"-> Capturado en vivo {emocion_sel.upper()} | Total acumulado: {len(X)}")
         else:
-            ultimo_mensaje = "⚠️ No se detecta rostro frente a la cámara"
+            ultimo_mensaje = "No se detecta rostro frente a la cámara"
     elif key == 13: # ENTER
         if len(set(y)) >= 2 and len(X) > 10:
             print("\n[ENTRENAMIENTO] Entrenando modelo híbrido optimizado con Random Forest...")
@@ -153,7 +159,7 @@ while cap.isOpened():
             print(f"Total de vectores de características utilizados: {len(X)}")
             break
         else:
-            print("⚠️ Necesitas al menos 2 clases diferentes y más de 10 muestras en total para entrenar.")
+            print("Necesitas al menos 2 clases diferentes y más de 10 muestras en total para entrenar.")
 
 cap.release()
 cv2.destroyAllWindows()

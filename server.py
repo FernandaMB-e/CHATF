@@ -1,3 +1,9 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
+
+
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 

@@ -1,3 +1,9 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
+
+
 import os
 import cv2
 import mediapipe as mp
@@ -116,7 +122,7 @@ while cap.isOpened():
             print(f"[ÉXITO] Modelo de alta precisión guardado en: {MODEL_PATH}")
             break
         else:
-            print("⚠️ Registra al menos 3 emociones diferentes antes de guardar.")
+            print("Registra al menos 3 emociones diferentes antes de guardar.")
 
 cap.release()
 cv2.destroyAllWindows()

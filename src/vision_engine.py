@@ -1,3 +1,10 @@
+
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
+
+
 import os
 import cv2
 import mediapipe as mp

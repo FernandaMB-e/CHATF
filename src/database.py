@@ -1,3 +1,9 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
+
+
 import os
 import time
 import random
@@ -10,7 +16,7 @@ load_dotenv()
 clave_secreta = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=clave_secreta)
 
-# Códigos de error que consideramos "transitorios" (vale la pena reintentar)
+
 CODIGOS_TRANSITORIOS = {503, 429, 500}
 
 

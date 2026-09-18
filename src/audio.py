@@ -1,3 +1,7 @@
+"""
+Autor: María Fernanda Méndez Barrera
+Fecha: 17/09/2026
+"""
 import pyttsx3
 
 class AudioManager:

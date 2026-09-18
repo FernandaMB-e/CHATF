@@ -81,8 +81,6 @@ if (SpeechRecognition) {
         btnMic.classList.remove('grabando');
         inputPregunta.placeholder = "Escribe o dicta tu pregunta...";
         
-        // Opcional: Descomenta la siguiente línea si quieres que se envíe sola al terminar de hablar
-        // btnEnviar.click(); 
     };
 
     // Si ocurre un error o hay silencio absoluto
@@ -206,4 +204,7 @@ inputPregunta.addEventListener('keypress', (e) => {
     }
 });
 
-
+/**
+ * Autor: María Fernanda Méndez Barrera
+ * Fecha: 17/09/2026
+ */
