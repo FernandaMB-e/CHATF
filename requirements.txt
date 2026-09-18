@@ -1,0 +1,16 @@
+# Servidor web y WebSockets (Frontend - Backend)
+fastapi
+uvicorn[standard]
+websockets
+
+# Visión Artificial y Mallas Faciales
+opencv-python
+mediapipe
+
+# Machine Learning y Matrices (Random Forest)
+scikit-learn
+numpy
+
+# Analítica de datos y Gráficas de distribución
+matplotlib
+pandas
